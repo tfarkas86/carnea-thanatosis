@@ -1,0 +1,22 @@
+model{
+
+    # prior on the variance
+
+      sigma2 ~ dgamma(0.0001, 0.0001)
+      tau <- 1 / sigma2
+
+    # prior on the mean
+      
+      #ybar <- mean(y[])
+      b0 ~ dnorm(ybar, 0.0001)
+
+    # likelihood
+
+      for (i in 1:enn) {
+  
+      y[i] ~ dnorm(mu[i], tau)
+      mu[i] <- b0
+
+      }
+
+  }

@@ -1,0 +1,45 @@
+model{
+  
+  # priors on beta
+  
+  b0 ~ dnorm(0, 0.0001)
+  b.tmnt_starve ~ dnorm(0, 0.0001)
+  b.tmnt_junk ~ dnorm(0, 0.0001)
+  b.sex ~ dnorm(0, 0.0001)
+  b.int_junk ~ dnorm(0, 0.0001)
+  b.int_starve ~ dnorm(0, 0.0001)
+  b.tmnt_one ~ dnorm(0, 0.0001)
+  b.tmnt_two ~ dnorm(0, 0.0001)
+  b.int_one ~ dnorm(0, 0.0001)
+  b.int_two ~ dnorm(0, 0.0001)
+  
+  # prior on shape parameters for beta
+  
+  phi ~ dunif(0,10)
+  
+  # likelihood
+  
+  for (i in 1:enn) {
+  
+  y[i] ~ dbeta(shp1[i], shp2[i])
+  shp1[i] <- mu[i] * phi
+  shp2[i] <- (1 - mu[i]) * phi
+  logit(mu[i]) <- eta[i]
+  
+  # eta[i] <- b0 +
+  #           b.tmnt_starve * tmnt_starve[i] +
+  #           b.tmnt_junk * tmnt_junk[i] +
+  #           b.sex * sex[i] +
+  #           b.int_starve * tmnt_starve[i] * sex[i] + 
+  #           b.int_junk * tmnt_junk[i] * sex[i] 
+
+  eta[i] <- b0 +
+            b.tmnt_one * tmnt_one[i] +
+            b.tmnt_two * tmnt_two[i] +
+            b.sex * sex[i] +
+            b.int_one * tmnt_one[i] * sex[i] + 
+            b.int_two * tmnt_two[i] * sex[i] 
+
+  }
+ 
+}

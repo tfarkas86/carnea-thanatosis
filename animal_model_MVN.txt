@@ -1,0 +1,33 @@
+model{
+
+  # priors
+    
+    Va ~ dunif(0,p.var) # uniform hyper prior for additive genetic variance
+  
+    var2_a <- A * Va # element-wise multiplication into genetic relatedness matrix (genetic covariance matrix)
+    tau_a <- inverse(var2_a) # inverse of matrix
+
+    a[1:enn] ~ dmnorm(mu[], tau_a[,]) # multivariate normal prior on breeding values with mean vector of 0s
+
+
+    Ve ~ dunif(0, p.var) # prior on environmental variance bounded by empirical phenotypic variance
+    tau_e <- 1 / Ve # precision
+    
+
+    b0 ~ dnorm(p.mu, 0.001) # prior on population average phenotype, with mean of empirical average
+
+  # likelihood: animal model 
+
+    for (i in 1:enn) {
+      
+      y[i] ~ dnorm(yhat[i], tau_e) # add environmental variance
+      yhat[i] <- b0 + a[i]  # animal model 
+
+    }
+
+  # derived quantities
+      
+    Vp <- Va + Ve # total phenotypic variance
+    h2 <- Va/Vp # heritability
+
+  }

@@ -1,0 +1,57 @@
+model{
+  
+  # priors on beta
+  
+    b0 ~ dnorm(0, 0.0001)
+    b.tmnt_starve ~ dnorm(0, 0.0001)
+    b.tmnt_junk ~ dnorm(0, 0.0001)
+    #b.tmnt_one ~ dnorm(0, 0.0001)
+    #b.tmnt_two ~ dnorm(0, 0.0001)
+    b.sex ~ dnorm(0, 0.0001)
+    b.int_starve ~ dnorm(0, 0.0001)
+    b.int_junk ~ dnorm(0, 0.0001)
+    # b.int_one ~ dnorm(0, 0.0001)
+    # b.int_two ~ dnorm(0, 0.0001)
+
+  # prior on size parameter for neg bin
+  
+    size ~ dunif(0.0001, 5)
+
+  # likelihood
+  
+    for (i in 1:enn) {
+  
+      y[i] ~ dnegbin(p[i], size)
+      p[i]  <- size / (size + mu[i])
+      log(mu[i]) <- eta[i]
+  
+      #eta[i] <- b0 + b.tmnt_starve * tmnt_starve[i] + b.tmnt_junk * tmnt_junk[i] + b.sex * c.sex[i]
+      #eta[i] <- b0 + b.tmnt_starve * tmnt_starve[i] + b.tmnt_junk * tmnt_junk[i] 
+      #eta[i] <- b0 + b.tmnt_one * tmnt_one[i] + b.tmnt_two * tmnt_two[i]
+  
+      eta[i] <- b0 +
+                b.tmnt_starve * tmnt_starve[i] +
+                b.tmnt_junk * tmnt_junk[i] +
+                b.sex * c.sex[i] +
+                b.int_starve * tmnt_starve[i] * c.sex[i] +
+                b.int_junk * tmnt_junk[i] * c.sex[i]
+
+  # discrepancy measures
+
+      exp[i] <- mu[i]
+      Var[i] <- mu[i] + mu[i] * mu[i] / size
+      e[i] <- (y[i] - exp[i]) / sqrt(Var[i]) # pearson residuals
+      d[i] <- pow(e[i], 2)
+  
+  # simulate new data
+  
+      ynew[i] ~ dnegbin(p[i], size)
+      enew[i] <- (ynew[i] - exp[i]) / sqrt(Var[i])
+      dnew[i] <- pow(enew[i], 2)
+  
+    }
+  
+  fit <- sum(d[1:enn])
+  fitnew <- sum(dnew[1:enn])
+  
+  }

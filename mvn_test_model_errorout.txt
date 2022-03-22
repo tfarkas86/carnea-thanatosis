@@ -1,0 +1,21 @@
+model{
+  
+  # prior on the variance
+  
+  sigma2 ~ dgamma(0.0001, 0.0001)
+  tau <- 1 / sigma2
+  
+  # prior on the mean
+  
+  #ybar <- mean(y[])
+  b0 ~ dnorm(ybar, 0.0001)
+
+  # prior on the error
+
+  for (i in 1:enn) {
+
+  e[i] ~ dnorm(err[i], tau)
+  err[i] <- y[i] - b0
+  }
+  
+  }

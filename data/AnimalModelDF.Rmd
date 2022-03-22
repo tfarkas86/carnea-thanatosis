@@ -1,0 +1,361 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+First let's import the phenotype data 
+```{r}
+data<-read.csv(file="~/Dropbox/Projects/Carnea_Thanatosis/data/DeathFeignMaster_9APR.csv", header=TRUE)
+names(data)[1]<-"animal"
+names(data)[13]<-"fam"
+head(data)
+tail(data) 
+```
+
+Now let's import the pedegree data 
+```{r}
+ped<-as.data.frame(read.table(file="~/Dropbox/Projects/Carnea_Thanatosis/data/deathfeignped.txt", header=TRUE))
+for(x in 1:3) ped[,x]<-as.factor(ped[,x])
+head(ped)
+tail (ped)
+```
+
+Now we load the required packages
+```{r}
+require(MCMCglmm)
+```
+
+Lets do a simple analysis using binary feign data with no additional fixed or random effects on all of the data. The Chi-squared prior which MCMCglmm tutorial recommends for binary data will be used.
+```{r}
+priora <- list(R = list(V = 1, fix = 1), 
+              G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+  
+modela <- MCMCglmm(feign ~ 1, random = ~animal, 
+                  family = "categorical", 
+                  prior = priora, pedigree = ped, data = data, 
+                  nitt = 100000, burnin = 10000, thin = 100, verbose=FALSE)
+```
+
+Now we look at how the analysis ran
+
+```{r}
+plot(modela$Sol)
+autocorr.diag(modela$Sol)
+effectiveSize(modela$Sol)
+
+plot(modela$VCV)
+autocorr.diag(modela$VCV)
+effectiveSize(modela$VCV)
+
+autocorr.diag(modela$Sol)
+autocorr.diag(modela$VCV)
+
+summary(modela)
+
+```
+
+Next calculate heritability 
+```{r}
+herita <- modela$VCV[, "animal"]/(modela$VCV[, "animal"] +
+      modela$VCV[, "units"] + 1)
+mean(herita)
+HPDinterval(herita)
+
+```
+
+Now let's try to re-run analysis without any 1/2 sib data
+
+```{r}
+datanohalf <- data[!data$fam %in% c("", "E", "J", "L", "M", "N", "Q", "KK"),]
+```
+
+Here is a simple model with all 1/2 sib families excluded
+
+```{r}
+priorb <- list(R = list(V = 1, fix = 1), 
+              G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+  
+modelb <- MCMCglmm(feign ~ 1, random = ~animal, 
+                  family = "categorical", 
+                  prior = priorb, pedigree = ped, data = datanohalf, 
+                  nitt = 1000000, burnin = 2000, thin = 200, verbose=FALSE)
+```
+
+Now we look at how the analysis ran
+
+```{r}
+plot(modelb$Sol)
+autocorr.diag(modelb$Sol)
+effectiveSize(modelb$Sol)
+
+plot(modelb$VCV)
+autocorr.diag(modelb$VCV)
+effectiveSize(modelb$VCV)
+
+autocorr.diag(modelb$Sol)
+autocorr.diag(modelb$VCV)
+
+summary(modelb)
+
+```
+
+
+Next calculate heritability 
+```{r}
+heritb <- modelb$VCV[, "animal"]/(modelb$VCV[, "animal"] +
+      modelb$VCV[, "units"] + 1)
+mean(heritb)
+HPDinterval(heritb)
+
+```
+
+
+Next we will try a model without any of the starved groups. 
+
+```{r}
+data$pdiet <- ifelse(is.na(data$crossf), data$diet, ifelse(data$crossf < 200, 1, ifelse(data$crossf < 300, 2, 3)))
+
+datafedonly <- data[data$pdiet==1, ]
+```
+
+Now we do a simple analysis on only the fed group, but including 1/2 sibs
+
+```{r}
+priorc <- list(R = list(V = 1, fix = 1), 
+              G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+  
+modelc <- MCMCglmm(feign ~ 1, random = ~animal, 
+                  family = "categorical", 
+                  prior = priorc, pedigree = ped, data = datafedonly, 
+                  nitt = 110000, burnin = 10000, thin = 100, verbose=FALSE)
+```
+
+
+Now we look at how the analysis ran
+
+```{r}
+plot(modelc$Sol)
+autocorr.diag(modelc$Sol)
+effectiveSize(modelc$Sol)
+
+plot(modelc$VCV)
+autocorr.diag(modelc$VCV)
+effectiveSize(modelc$VCV)
+
+autocorr.diag(modelc$Sol)
+autocorr.diag(modelc$VCV)
+
+summary(modelc)
+
+```
+
+
+
+Next calculate heritability 
+```{r}
+heritc <- modelc$VCV[, "animal"]/(modelc$VCV[, "animal"] +
+      modelc$VCV[, "units"] + 1)
+mean(heritc)
+HPDinterval(heritc)
+
+```
+
+Now let's make the model more complicated
+
+First we will check for a maternal effect
+
+```{r}
+data$mom<-ped$mother
+datafedonly <- data[data$pdiet==1, ]
+tail(data)
+```
+
+Now we run the model with maternal effects
+```{r}
+priorm <- list(R = list(V = 1, fix = 1), 
+                 G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1), 
+                 G2 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+
+modelm<-MCMCglmm(feign ~ 1, random= ~animal+mom,
+                   family="categorical", prior=priorm, pedigree=ped, data=datafedonly,
+                   nitt = 110000, burnin = 10000, thin = 100, verbose=FALSE)
+```
+
+```{r}
+plot(modelm$Sol)
+autocorr.diag(modelm$Sol)
+effectiveSize(modelm$Sol)
+
+plot(modelm$VCV)
+autocorr.diag(modelm$VCV)
+effectiveSize(modelm$VCV)
+
+autocorr.diag(modelm$Sol)
+autocorr.diag(modelm$VCV)
+
+anm <- summary(modelm)
+DICm <- anm$DIC
+
+```
+
+Test effect of maternal effects when randomizing mothers on DIC
+```{r}
+
+nd <- datafedonly %>% 
+  select(animal, feign, mom) 
+
+reps <- 100
+
+priorm <- list(R = list(V = 1, fix = 1), 
+                 G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1), 
+                 G2 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+
+out <- matrix(NA, nrow=reps, ncol=4)
+
+for(i in 1:reps) {
+  
+  nd$mom <- sample(nd$mom, size=nrow(nd), replace=FALSE)
+  
+  modelm2<-MCMCglmm(feign ~ 1, random= ~animal+mom,
+                   family="categorical", prior=priorm, pedigree=ped, data=nd,
+                   nitt = 11000, burnin = 1000, thin = 10, verbose=FALSE)
+  
+  
+ an_mean <- mean(modelm2$VCV[, "animal"])
+ an_low <- quantile(modelm2$VCV[, "animal"], prob=0.025)
+ an_high <- quantile(modelm2$VCV[, "animal"], prob=0.975)
+ DIC <- modelm2$DIC
+ 
+ out[i, ] <- cbind(an_mean, an_low, an_high, DIC)
+  
+}
+
+save(sim_maternal, file="~/Dropbox/Projects/Carnea_Thanatosis/data/sim_maternal.RData")
+
+
+
+```
+
+
+
+```{r}
+heritm <- modelm$VCV[, "animal"]/(modelm$VCV[, "animal"] +
+      modelm$VCV[, "units"] + 1)
+mean(heritm)
+HPDinterval(heritm)
+
+```
+
+We are trying to make a ped with just fed families
+```{r}
+fedped<-as.data.frame(read.table(file="~/Dropbox/Projects/Carnea_Thanatosis/data/deathfeignpedfed.txt", header=TRUE))
+for(x in 1:3) ped[,x]<-as.factor(ped[,x])
+head(fedped)
+tail(fedped)
+```
+
+
+We will now construct a dominance matrix and add a column to data called dom that is identical to animal... the package needs this
+
+
+```{r}
+require(nadiv)
+datafedonly$dom<-datafedonly$animal
+listD<-makeD(fedped)
+#Dinv<-as.matrix(listD$Dinv)
+Dinv<-listD$Dinv
+
+
+rownames(Dinv)<- datafedonly$dom
+```
+
+
+
+```{r}
+priord <- list(R = list(V = 1, fix = 1), 
+          G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1), 
+          G2 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+
+modeld<-MCMCglmm(feign ~ 1, random= ~animal+dom, ginverse=list(dom=Dinv),
+                family="categorical", prior=priord, pedigree=ped, 
+                data=datafedonly,nitt=100000,burnin=2000,thin=100, verbose=FALSE)
+```
+
+
+```{r}
+plot(modeld$Sol)
+autocorr.diag(modeld$Sol)
+effectiveSize(modeld$Sol)
+
+plot(modeld$VCV)
+autocorr.diag(modeld$VCV)    
+effectiveSize(modeld$VCV)
+
+autocorr.diag(modeld$Sol)
+autocorr.diag(modeld$VCV)
+
+summary(modeld)
+
+```
+
+Test effect of dominance effects when randomizing pedigree on DIC
+```{r}
+
+
+nd <- datafedonly %>% 
+  select(animal, feign, dom) 
+
+pd <- fedped
+listD<-makeD(pd)
+Dinv<-listD$Dinv
+rownames(Dinv)<- nd$dom
+
+reps <- 10
+
+priord <- list(R = list(V = 1, fix = 1), 
+          G = list(G1 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1), 
+          G2 = list(V = 1, nu = 1000, alpha.mu = 0, alpha.V = 1)))
+
+sim_dom <- matrix(NA, nrow=reps, ncol=4)
+
+for(i in 1:reps) {
+  
+  pd$mother <- sample(pd$mother, size=nrow(pd))
+  pd$father <- sample(pd$father, size=nrow(pd))
+  
+  listD<-makeD(pd)
+  Dinv<-listD$Dinv
+  
+  modeld2<-MCMCglmm(feign ~ 1, random= ~animal+dom, ginverse=list(dom=Dinv),
+                family="categorical", prior=priord, pedigree=ped, 
+                data=nd,nitt=11000,burnin=1000,thin=10, verbose=FALSE)
+  
+  
+ an_mean <- mean(modeld2$VCV[, "animal"])
+ an_low <- quantile(modeld2$VCV[, "animal"], prob=0.025)
+ an_high <- quantile(modeld2$VCV[, "animal"], prob=0.975)
+ DIC <- modeld2$DIC
+ 
+ sim_dom[i, ] <- cbind(an_mean, an_low, an_high, DIC)
+  
+}
+
+save(sim_maternal, file="~/Dropbox/Projects/Carnea_Thanatosis/data/sim_maternal.RData")
+
+
+
+```
+
+
+
+
+
+```{r}
+heritd <- modeld$VCV[, "animal"]/(modeld$VCV[, "animal"] +
+      modeld$VCV[, "units"] + 1)
+mean(heritd)
+HPDinterval(heritd)
+
+```
+
+
